@@ -1,0 +1,7 @@
+azure-cosmos
+datetime
+iocextract
+pandas
+pytesseract
+requests
+urlextract
