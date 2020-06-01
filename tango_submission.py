@@ -1,4 +1,3 @@
-import azure.cosmos.cosmos_client as cosmos_client
 import binascii
 import csv
 import datetime
@@ -13,6 +12,8 @@ import pytesseract
 import requests
 import time
 
+
+from azure.cosmos import CosmosClient
 from datetime import datetime
 from pathlib import Path
 from PIL import Image
@@ -22,7 +23,7 @@ from urlextract import URLExtract
 # GLOBAL VARIABLES #
 ####################
 
-MAX_POST_REQ_NETCRAFT = 1000
+MAX_POST_REQ_NETCRAFT = 1000 
 
 # Supported file types
 img_exts = ['jpg', 'png', 'gif', 'bmp', 'tiff']
@@ -70,7 +71,8 @@ def main():
 
     else:
         print ("Input file not found")
-        
+
+
 ##########################################################################
 #
 # Function name: access_input_file
@@ -109,7 +111,8 @@ def access_input_file(input_file):
     print ("Successfully accessed blob")
 
     return content
-    
+
+
 ##########################################################################
 #
 # Function name: extract_URLs
@@ -128,18 +131,20 @@ def extract_URLs(content):
         urls  = extractor.find_urls(content)            # returns list of urls
         iocs  = list(iocextract.extract_urls(content))  # another method for extracting urls
 
-        info_to_evaluate = urls + iocs
+        info_to_evaluate = urls + iocs 
 
         print ("Successfully extracted URLs")
 
         return info_to_evaluate
+
+
 ##########################################################################
 #
 # Function name: dedup_URLs
 # Input: list of URLs
 # Output: deduped list of URLs
 #
-# Purpose: produce a deduped list of URLs extracted from the blob
+# Purpose: produce a deduped list of URLs extracted from the blob 
 #          processed.
 #
 ##########################################################################
@@ -155,17 +160,17 @@ def dedup_URLs(url_list):
     print ("Successfull de-duped URL list")
 
     return unique_url_list
-    
+
 ##########################################################################
 #
 # Function name: submit_URLs_Netcraft
 # Input: Unique list of IPs
 # Output: Returns the result of submitting the url(s) to netcraft:
 #         - return_string: string describing success/failure of operation
-#         - uuid: if call was successful, uuis should be non-zero.  Else,
+#         - uuid: if call was successful, uuis should be non-zero.  Else, 
 #           populated with "0000"
 #         - state: the state of the request
-#
+#        
 #
 # Purpose: Submit list of unique URLs for processing with Netcraft.
 #
@@ -243,13 +248,13 @@ def submit_URLs_Netcraft(unique_url_list):
             # resubmit the list with the poorly formatted URLs removed
             print("Resubmitting valid URLs")
             uuid = submit_URLs_Netcraft(unique_url_list)
-            
+
     # Other possible error codes: 429 - too many submissions
-    #else:
+    #else: 
     #    state = {}
 
     return uuid
-    
+
 ##########################################################################
 #
 # Function name: check_URLs_state_Netcraft_bulk
@@ -258,8 +263,8 @@ def submit_URLs_Netcraft(unique_url_list):
 #
 # Output:
 #
-# Purpose: to check the characterization of each URL submitted to
-#          Netcraft.
+# Purpose: to check the characterization of each URL submitted to 
+#          Netcraft.  
 #          Possible results:
 #          - processing
 #          - no threats
@@ -292,7 +297,7 @@ def check_URLs_state_Netcraft_bulk(uuid, unique_url_list):
 
     print("Netcraft submission check response status code (" + uuid_str + "): " + str(r_get.status_code))
     print(r_get.json())
-    
+
     if r_get.status_code == 200:
         if r_get.json() == {}:
             print("No results available.")
@@ -329,30 +334,32 @@ def check_URLs_state_Netcraft_bulk(uuid, unique_url_list):
                     }
 
     return result
-    
+
 ##########################################################################
 #
 # Function name: update_cosmos_db
-# Input:
+# Input: 
 #    - list of uuids associated to report
 #    - number of URLs reported via partner
 #    - number of deduped URLs reported via partner
-# Output:
+# Output: 
 #
 # Purpose: Add record of uuid.
 #
 ##########################################################################
 def update_cosmos_db(uuid, num_urls_rec, num_urls_unq):
-
+    
     print ("\n***** Add UUID to the COSMOS DB *****\n")
     uri          = os.environ.get('ACCOUNT_URI')
     key          = os.environ.get('ACCOUNT_KEY')
     database_id  = os.environ.get('DATABASE_ID')
     container_id = os.environ.get('CONTAINER_ID')
 
-    client = cosmos_client.CosmosClient(uri, {'masterKey': key})
-    container_link = "dbs/" + database_id + "/colls/" + container_id
-    print ("Container link: " + container_link)
+    #client = cosmos_client.CosmosClient(uri, {'masterKey': key})
+    client = CosmosClient(uri, {'masterKey': key})
+
+    database = client.get_database_client(database_id)
+    container = database.get_container_client(container_id)
 
     # Get date
     date_str = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
@@ -368,24 +375,24 @@ def update_cosmos_db(uuid, num_urls_rec, num_urls_unq):
     print ("    num URLs received: " + str(num_urls_rec))
     print ("    num unique URLs received: " + str(num_urls_unq))
     print ("    associated uuids: " + all_uuid_str)
-   
+
     # information to include:
     # - uuid
     # - associated uuids
     # - date
     # - number of URLs received from partner
-    # - number of unique URLs
+    # - number of unique URLs 
     # - number of valid URLs subitted to Netcraft
     # - list of valid URLs submitted to Netcraft
 
     # statement to insert record
-    client.UpsertItem(container_link, { 'id': uuid_str,
-                                        'date': date_str,
-                                        'uuid': uuid_str,
-                                        'assoc_uuids': all_uuid_str,
-                                        'n_urls_in': num_urls_rec,
-                                        'n_urls_unq': num_urls_unq
-                                          })
+    container.upsert_item({ 'id': uuid_str,
+                            'date': date_str,
+                            'uuid': uuid_str,
+                            'assoc_uuids': all_uuid_str,
+                            'n_urls_in': num_urls_rec,
+                            'n_urls_unq': num_urls_unq })
 
 if __name__ == "__main__":
     main()
+
