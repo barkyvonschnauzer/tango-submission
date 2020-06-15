@@ -49,6 +49,8 @@ def main():
         url_list        = extract_URLs(file_content)
         unique_url_list = dedup_URLs(url_list)
 
+        #urls_to_submit = check_urls(unique_url_list)
+
         print("\n***** URLs sent to Netcraft *****")
         for url in unique_url_list:
             print (url)
@@ -74,6 +76,55 @@ def main():
 
 
 ##########################################################################
+#
+# Function name: check_urls
+# Input: unique_url_list
+# Output: list of urls that have not been submitted in the past 24 hours.
+#
+# Purpose: identify which of the most-recently received URLs have not 
+#          been submitted ot Netcraft in the past 24 hours.
+#
+##########################################################################
+def check_urls(url_list):
+
+    print ("**** CHECK URLS ****\n")
+
+    uri          = os.environ.get('ACCOUNT_URI')
+    key          = os.environ.get('ACCOUNT_KEY')
+    database_id  = os.environ.get('DATABASE_ID')
+    container_id = os.environ.get('CONTAINER_ID')
+
+    #client = cosmos_client.CosmosClient(uri, {'masterKey': key})
+    client = CosmosClient(uri, {'masterKey': key})
+
+    database = client.get_database_client(database_id)
+    container = database.get_container_client(container_id)
+
+    current_date = datetime.now()
+    date_yesterday = current_date - timedelta(days=1)
+
+    #print('Today: ' + current_date.strftime('%Y-%m-%d %H:%M:%S'))
+    #print('Yesterday: ' + date_yesterday.strftime('%Y-%m-%d %H:%M:%S'))
+
+    print ("Query db for UUIDs since yesterday\n")
+
+    yesterday  = int((datetime.utcnow() - relativedelta(days=1)).timestamp())
+
+    #print(str(yesterday))
+
+    query = 'SELECT c.urls_unq FROM c WHERE c._ts > {}'.format(str(yesterday))
+    url_results = list(container.query_items(query, enable_cross_partition_query = True))
+
+    print (uuid_query_results)
+
+    retrieved_urls = [y for x in url_results for y in x.split(', ')]
+
+    # identify which urls are being submitted for the first time in 24 hours
+    urls_to_submit = list(set(unique_url_list) - set(retrieved_urls))
+
+    return urls_to_submit
+
+#########################################################################
 #
 # Function name: access_input_file
 # Input: name of inout file
