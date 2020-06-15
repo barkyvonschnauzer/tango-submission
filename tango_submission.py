@@ -67,7 +67,7 @@ def main():
         if uuid == "0000":
             print ("Error, UUID is set to default value of 0000\n")
         else:
-            update_cosmos_db(uuid, len(url_list), len(unique_url_list))
+            update_cosmos_db(uuid, len(url_list), len(unique_url_list), unique_url_list)
 
     else:
         print ("Input file not found")
@@ -347,12 +347,12 @@ def check_URLs_state_Netcraft_bulk(uuid, unique_url_list):
 # Purpose: Add record of uuid.
 #
 ##########################################################################
-def update_cosmos_db(uuid, num_urls_rec, num_urls_unq):
+def update_cosmos_db(uuid, num_urls_rec, num_urls_unq, unique_url_list):
     
     print ("\n***** Add UUID to the COSMOS DB *****\n")
-    uri          = os.environ.get('ACCOUNT_URI')
-    key          = os.environ.get('ACCOUNT_KEY')
-    database_id  = os.environ.get('DATABASE_ID')
+    uri              = os.environ.get('ACCOUNT_URI')
+    key              = os.environ.get('ACCOUNT_KEY')
+    database_id      = os.environ.get('DATABASE_ID')
     container_id = os.environ.get('CONTAINER_ID')
 
     #client = cosmos_client.CosmosClient(uri, {'masterKey': key})
@@ -369,12 +369,15 @@ def update_cosmos_db(uuid, num_urls_rec, num_urls_unq):
     uuid_str = str(uuid)
     print (uuid_str)
 
+    unique_url_list_str   = ' '.join(map(str, unique_url_list))
+
     print ("Informaton for new record: ")
     print ("    uuid: " + uuid_str)
     print ("    date: " + date_str)
     print ("    num URLs received: " + str(num_urls_rec))
     print ("    num unique URLs received: " + str(num_urls_unq))
     print ("    associated uuids: " + all_uuid_str)
+    print ("    unique url list: " + unique_url_list_str)
 
     # information to include:
     # - uuid
@@ -383,7 +386,7 @@ def update_cosmos_db(uuid, num_urls_rec, num_urls_unq):
     # - number of URLs received from partner
     # - number of unique URLs 
     # - number of valid URLs subitted to Netcraft
-    # - list of valid URLs submitted to Netcraft
+    # - list URLs received from client
 
     # statement to insert record
     container.upsert_item({ 'id': uuid_str,
@@ -391,7 +394,8 @@ def update_cosmos_db(uuid, num_urls_rec, num_urls_unq):
                             'uuid': uuid_str,
                             'assoc_uuids': all_uuid_str,
                             'n_urls_in': num_urls_rec,
-                            'n_urls_unq': num_urls_unq })
+                            'n_urls_unq': num_urls_unq,
+                            'urls_unq': unique_url_list_str })
 
 if __name__ == "__main__":
     main()
