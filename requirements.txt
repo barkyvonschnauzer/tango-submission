@@ -3,5 +3,6 @@ datetime
 iocextract
 pandas
 pytesseract
+python-dateutil
 requests
 urlextract

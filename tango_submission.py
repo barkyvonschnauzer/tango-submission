@@ -15,9 +15,11 @@ import time
 
 from azure.cosmos import CosmosClient
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from pathlib import Path
 from PIL import Image
 from urlextract import URLExtract
+
 
 ####################
 # GLOBAL VARIABLES #
@@ -48,11 +50,10 @@ def main():
         file_content    = access_input_file(input_file)
         url_list        = extract_URLs(file_content)
         unique_url_list = dedup_URLs(url_list)
-
-        #urls_to_submit = check_urls(unique_url_list)
+        urls_to_submit  = check_urls(unique_url_list)
 
         print("\n***** URLs sent to Netcraft *****")
-        for url in unique_url_list:
+        for url in urls_to_submit:
             print (url)
 
         # Send list of deduped (unique) URLs to Netcraft for assessment
@@ -62,14 +63,14 @@ def main():
         #for j in range(num_calls_netcraft):
         # Check list of URLs againts Netcraft
         #list_subset_netcraft = unique_url_list[j*MAX_POST_REQ_NETCRAFT:(MAX_POST_REQ_NETCRAFT*(1 + j))]
-        uuid = submit_URLs_Netcraft(unique_url_list)
+        uuid = submit_URLs_Netcraft(urls_to_submit)
         print ("Netcraft UUID: " + uuid)
         #netcraft_uuids.append(uuid)
 
         if uuid == "0000":
             print ("Error, UUID is set to default value of 0000\n")
         else:
-            update_cosmos_db(uuid, len(url_list), len(unique_url_list), unique_url_list)
+            update_cosmos_db(uuid, len(url_list), len(urls_to_submit), urls_to_submit)
 
     else:
         print ("Input file not found")
@@ -94,35 +95,37 @@ def check_urls(url_list):
     database_id  = os.environ.get('DATABASE_ID')
     container_id = os.environ.get('CONTAINER_ID')
 
+    reported_urls = []
+
     #client = cosmos_client.CosmosClient(uri, {'masterKey': key})
     client = CosmosClient(uri, {'masterKey': key})
 
     database = client.get_database_client(database_id)
     container = database.get_container_client(container_id)
 
-    current_date = datetime.now()
-    date_yesterday = current_date - timedelta(days=1)
-
-    #print('Today: ' + current_date.strftime('%Y-%m-%d %H:%M:%S'))
-    #print('Yesterday: ' + date_yesterday.strftime('%Y-%m-%d %H:%M:%S'))
-
     print ("Query db for UUIDs since yesterday\n")
 
     yesterday  = int((datetime.utcnow() - relativedelta(days=1)).timestamp())
 
-    #print(str(yesterday))
-
     query = 'SELECT c.urls_unq FROM c WHERE c._ts > {}'.format(str(yesterday))
     url_results = list(container.query_items(query, enable_cross_partition_query = True))
 
-    print (uuid_query_results)
+    for record in url_results:
+        record_urls = (record['urls_unq'].split(' '))
+        reported_urls.extend(record_urls)
 
-    retrieved_urls = [y for x in url_results for y in x.split(', ')]
+    print ("Previously Reported URLs")
+    print (reported_urls)
+    print ("\nNewly Reported URLs")
+    print (url_list)
 
     # identify which urls are being submitted for the first time in 24 hours
-    urls_to_submit = list(set(unique_url_list) - set(retrieved_urls))
+    new_unique_urls = list(set(url_list) - set(reported_urls))
 
-    return urls_to_submit
+    print ("\nURLs to report to Netcraft")
+    print (new_unique_urls)
+
+    return new_unique_urls
 
 #########################################################################
 #
@@ -180,9 +183,25 @@ def extract_URLs(content):
         ### Identify URLs in content ###
         extractor = URLExtract();
         urls  = extractor.find_urls(content)            # returns list of urls
-        iocs  = list(iocextract.extract_urls(content))  # another method for extracting urls
+        #iocs  = list(iocextract.extract_urls(content))  # another method for extracting urls
 
-        info_to_evaluate = urls + iocs 
+        print ("extractor.find method")
+        print (urls)
+        #print ("iocextract.extract_urls method")
+        #print (iocs)
+
+        info_to_evaluate = urls# + iocs
+
+        index = 0
+
+        # Occassionally, the functions above return urls with trailing commas.  Remove these.
+        for url in info_to_evaluate:
+            if url.endswith(','):
+                info_to_evaluate[index] = url[:-1]
+            index += 1
+
+        print ("Removed trailing commas")
+        print (info_to_evaluate)
 
         print ("Successfully extracted URLs")
 
@@ -209,6 +228,9 @@ def dedup_URLs(url_list):
         unique_url_list = list(set(url_list))
 
     print ("Successfull de-duped URL list")
+
+    print ("Initially Deduped list")
+    print (unique_url_list)
 
     return unique_url_list
 
