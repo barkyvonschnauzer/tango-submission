@@ -63,14 +63,17 @@ def main():
         #for j in range(num_calls_netcraft):
         # Check list of URLs againts Netcraft
         #list_subset_netcraft = unique_url_list[j*MAX_POST_REQ_NETCRAFT:(MAX_POST_REQ_NETCRAFT*(1 + j))]
-        uuid = submit_URLs_Netcraft(urls_to_submit)
-        print ("Netcraft UUID: " + uuid)
-        #netcraft_uuids.append(uuid)
+        if len (urls_to_submit) > 0:
+            uuid = submit_URLs_Netcraft(urls_to_submit)
+            print ("Netcraft UUID: " + uuid)
+            #netcraft_uuids.append(uuid)
 
-        if uuid == "0000":
-            print ("Error, UUID is set to default value of 0000\n")
+            if uuid == "0000":
+                print ("Error, UUID is set to default value of 0000\n")
+            else:
+                update_cosmos_db(uuid, len(url_list), len(urls_to_submit), urls_to_submit)
         else:
-            update_cosmos_db(uuid, len(url_list), len(urls_to_submit), urls_to_submit)
+            print ("No new URLs to submit to Netcraft")
 
     else:
         print ("Input file not found")
