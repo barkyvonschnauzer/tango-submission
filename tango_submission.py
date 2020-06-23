@@ -63,7 +63,7 @@ def main():
         #for j in range(num_calls_netcraft):
         # Check list of URLs againts Netcraft
         #list_subset_netcraft = unique_url_list[j*MAX_POST_REQ_NETCRAFT:(MAX_POST_REQ_NETCRAFT*(1 + j))]
-        if len (urls_to_submit) > 0:
+        if len(urls_to_submit) > 0:
             uuid = submit_URLs_Netcraft(urls_to_submit)
             print ("Netcraft UUID: " + uuid)
             #netcraft_uuids.append(uuid)
@@ -142,7 +142,7 @@ def check_urls(url_list):
 ##########################################################################
 def access_input_file(input_file):
 
-    print ("\n***** access_inout_file *****\n")
+    print ("\n***** access_input_file *****\n")
 
     ### Determine the file type ###
     extension = os.path.splitext(input_file.name)[1][1:]
