@@ -14,6 +14,7 @@ import time
 
 
 from azure.cosmos import CosmosClient
+from collections import Counter
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
@@ -75,8 +76,53 @@ def main():
         else:
             print ("No new URLs to submit to Netcraft")
 
+        # store volumes for all URLs received in DB
+        store_url_counts(url_list, unique_url_list)
+
     else:
         print ("Input file not found")
+
+
+##########################################################################
+#
+# Function name: store_url_counts
+# Input: url_list
+# Output: TBD
+#
+# Purpose: update the db to include information on urls received:
+#          - date/time
+#          - url
+#          - number of submissions
+#
+##########################################################################
+def store_url_counts(url_list, unique_url_list):
+
+    print ("**** COUNT URLS ****\n")
+    print(url_list)
+    url_counts = dict(Counter(url_list))
+    print(url_counts)
+
+    uri          = os.environ.get('ACCOUNT_URI')
+    key          = os.environ.get('ACCOUNT_KEY')
+    database_id  = os.environ.get('DATABASE_ID')
+    container_id = os.environ.get('URL_CONTAINER_ID')
+
+    client    = CosmosClient(uri, {'masterKey': key})
+    database  = client.get_database_client(database_id)
+    container = database.get_container_client(container_id)
+
+    date_str    = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+    id_date     = int((datetime.utcnow()).timestamp())
+    id_date_str = str(id_date)
+
+    output = []
+    for k,v in url_counts.items():
+        output.append({'url':k, 'count':v})
+
+    container.upsert_item({'id': id_date_str,
+                           'date_time': id_date_str,
+                           'date': date_str,
+                           'urls_and_counts': output})
 
 
 ##########################################################################
@@ -100,10 +146,8 @@ def check_urls(url_list):
 
     reported_urls = []
 
-    #client = cosmos_client.CosmosClient(uri, {'masterKey': key})
-    client = CosmosClient(uri, {'masterKey': key})
-
-    database = client.get_database_client(database_id)
+    client    = CosmosClient(uri, {'masterKey': key})
+    database  = client.get_database_client(database_id)
     container = database.get_container_client(container_id)
 
     print ("Query db for UUIDs since yesterday\n")
@@ -426,15 +470,13 @@ def check_URLs_state_Netcraft_bulk(uuid, unique_url_list):
 def update_cosmos_db(uuid, num_urls_rec, num_urls_unq, unique_url_list):
     
     print ("\n***** Add UUID to the COSMOS DB *****\n")
-    uri              = os.environ.get('ACCOUNT_URI')
-    key              = os.environ.get('ACCOUNT_KEY')
-    database_id      = os.environ.get('DATABASE_ID')
+    uri          = os.environ.get('ACCOUNT_URI')
+    key          = os.environ.get('ACCOUNT_KEY')
+    database_id  = os.environ.get('DATABASE_ID')
     container_id = os.environ.get('CONTAINER_ID')
 
-    #client = cosmos_client.CosmosClient(uri, {'masterKey': key})
-    client = CosmosClient(uri, {'masterKey': key})
-
-    database = client.get_database_client(database_id)
+    client    = CosmosClient(uri, {'masterKey': key})
+    database  = client.get_database_client(database_id)
     container = database.get_container_client(container_id)
 
     # Get date
