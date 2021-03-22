@@ -218,9 +218,9 @@ def access_input_file(input_file):
 #
 # Function name: extract_URLs
 # Input: content (text)
-# Output: non-deduped, non-sorted list of extracted urls.
+# Output: non-deduped, non-sorted list of extracted URLs and IPs.
 #
-# Purpose: identify and extract the URLs present in the text input.
+# Purpose: identify and extract the URLs and IPs present in the text input.
 #
 ##########################################################################
 def extract_URLs(content):
@@ -229,22 +229,26 @@ def extract_URLs(content):
         print ("\n***** Extract URLs *****\n")
         ### Identify URLs in content ###
         extractor = URLExtract();
-        urls  = extractor.find_urls(content)            # returns list of urls
-        #iocs  = list(iocextract.extract_urls(content))  # another method for extracting urls
-
+        extractor_urls  = extractor.find_urls(content)
+        
+        iocextract_urls = list(iocextract.extract_urls(content))
+        iocextract_ips  = list(iocextract.extract_ips(content))
+        
         print ("extractor.find method")
-        print (urls)
-        #print ("iocextract.extract_urls method")
-        #print (iocs)
+        print (extract_urls)
+        print ("iocextract.extract_urls method")
+        print (iocextract_urls)
+        print ("iocextract.extract_ips method")
+        print (iocextract_ips)
 
-        info_to_evaluate = urls# + iocs
+        info_to_evaluate = extract_urls + iocextract_urls + iocextract_ips
 
         index = 0
 
         # Occassionally, the functions above return urls with trailing commas.  Remove these.
-        for url in info_to_evaluate:
-            if url.endswith(','):
-                info_to_evaluate[index] = url[:-1]
+        for ioc in info_to_evaluate:
+            if ioc.endswith(','):
+                info_to_evaluate[index] = ioc[:-1]
             index += 1
 
         print ("Removed trailing commas")
@@ -301,14 +305,13 @@ def submit_URLs_Netcraft(unique_url_list):
     print("\n***** Submit extracted URLs to Netcraft for evaluation *****\n")
 
     # The below link is for development.  Once deployed, use:
-    netcraftReport_url = "https://report.netcraft.com/api/v2/report/urls"
-    #netcraftReport_url  = "https://report.netcraft.com/api/v2/test/report/urls"
+    netcraftReport_url = "https://report.netcraft.com/api/v3/report/urls"
 
     headers = {'Content-type': 'application/json'}
 
     request_data = {
         "email": "karen.vanderwerf@cyber.gc.ca",
-        "urls": [u for u in unique_url_list],
+        "urls": [{"url": u} for u in unique_url_list],#[u for u in unique_url_list],
         }
 
     # Check URLs with netcraft service
@@ -386,6 +389,7 @@ def submit_URLs_Netcraft(unique_url_list):
 # Purpose: to check the characterization of each URL submitted to 
 #          Netcraft.  
 #          Possible results:
+#          (v2)
 #          - processing
 #          - no threats
 #          - unavailable
@@ -394,6 +398,12 @@ def submit_URLs_Netcraft(unique_url_list):
 #          - suspicious
 #          - malware
 #          - rejected (was already submitted)
+#          (v3)
+#          - processing
+#          - no threats
+#          - unavailable
+#          - malicious
+#          - suspicious
 #
 ##########################################################################
 def check_URLs_state_Netcraft_bulk(uuid, unique_url_list):
@@ -404,8 +414,7 @@ def check_URLs_state_Netcraft_bulk(uuid, unique_url_list):
 
     # submit GET request to Netcraft for each UUID identified above
     # The below link is for development.  Once deployed, use:
-    netcraftSubmissionCheck_url = "https://report.netcraft.com/api/v2/submission/" + uuid_str + "/urls"
-    #netcraftSubmissionCheck_url = "https://report.netcraft.com/api/v2/test/submission/" + uuid_str + "/urls"
+    netcraftSubmissionCheck_url = "https://report.netcraft.com/api/v3/submission/" + uuid_str + "/urls"
 
     # Check URLs with netcraft service
     headers = {'Content-type': 'application/json'}
@@ -432,7 +441,8 @@ def check_URLs_state_Netcraft_bulk(uuid, unique_url_list):
                 print ("url: ", url)
                 print ("url state: ", url_state)
 
-                if url_state in ["phishing", "already blocked", "suspicious", "malware"]:
+                if url_state in ["malicious", "suspicious"]: #v3
+                #if url_state in ["phishing", "already blocked", "suspicious", "malware"]: #v2
                     print("Likely malicious")
                     result[url] = {
                         'malicious': True,
