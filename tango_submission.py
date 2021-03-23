@@ -228,20 +228,34 @@ def extract_URLs(content):
     if content is not None:
         print ("\n***** Extract URLs *****\n")
         ### Identify URLs in content ###
+
         extractor = URLExtract();
         extractor_urls  = extractor.find_urls(content)
         
-        iocextract_urls = list(iocextract.extract_urls(content))
-        iocextract_ips  = list(iocextract.extract_ips(content))
+        iocextract_urls = list(iocextract.extract_urls(content, refang=True))
+        iocextract_ips  = list(iocextract.extract_ips(content, refang=True))
+
+        iocextract_ips_valid = []
+
+        if (len(iocextract_ips) > 0):
+            for ip in iocextract_ips:
+                # Add check to further refine list of potential IPs:
+                # Basic format check: 
+                #     IPv4: xxx.xxx.xxx.xxx or
+                #     IPv6: xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx
+                if ip.count(".") != 3 or ip.count(":") != 7:
+                    print ("Invalid IP address: " + str(ip))
+                else:
+                    iocextract_ips_valid.append(ip)
         
+        print ("iocextract.extract_ips method - format validated")
+        print (iocextract_ips_valid)
         print ("extractor.find method")
-        print (extract_urls)
+        print (extractor_urls)
         print ("iocextract.extract_urls method")
         print (iocextract_urls)
-        print ("iocextract.extract_ips method")
-        print (iocextract_ips)
 
-        info_to_evaluate = extract_urls + iocextract_urls + iocextract_ips
+        info_to_evaluate = extractor_urls + iocextract_urls + iocextract_ips_valid
 
         index = 0
 
