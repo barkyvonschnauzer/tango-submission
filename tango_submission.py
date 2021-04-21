@@ -26,7 +26,8 @@ from urlextract import URLExtract
 # GLOBAL VARIABLES #
 ####################
 
-MAX_POST_REQ_NETCRAFT = 1000 
+# No monitoring support (no UUID returned) for submissions with 1000+ IOCs.
+MAX_POST_REQ_NETCRAFT = 999 
 
 # Supported file types
 img_exts = ['jpg', 'png', 'gif', 'bmp', 'tiff']
@@ -53,28 +54,31 @@ def main():
         unique_url_list = dedup_URLs(url_list)
         urls_to_submit  = check_urls(unique_url_list)
 
-        print("\n***** URLs sent to Netcraft *****")
-        for url in urls_to_submit:
-            print (url)
+        #print("\n***** URLs sent to Netcraft *****")
+        #for url in urls_to_submit:
+        #    print (url)
 
         # Send list of deduped (unique) URLs to Netcraft for assessment
-        #num_calls_netcraft = math.ceil((len(unique_url_list))/MAX_POST_REQ_NETCRAFT)
+        num_calls_netcraft = math.ceil((len(urls_to_submit))/MAX_POST_REQ_NETCRAFT)
         #netcraft_uuids = []
 
-        #for j in range(num_calls_netcraft):
-        # Check list of URLs againts Netcraft
-        #list_subset_netcraft = unique_url_list[j*MAX_POST_REQ_NETCRAFT:(MAX_POST_REQ_NETCRAFT*(1 + j))]
-        if len(urls_to_submit) > 0:
-            uuid = submit_URLs_Netcraft(urls_to_submit)
-            print ("Netcraft UUID: " + uuid)
-            #netcraft_uuids.append(uuid)
+        print ("Number of unique IOCs to submit: " + str(len(urls_to_submit)))
+        print ("Number of calls to make to Netcraft: " + str(num_calls_netcraft))
 
-            if uuid == "0000":
-                print ("Error, UUID is set to default value of 0000\n")
+        for j in range(num_calls_netcraft):
+            # Check list of URLs againts Netcraft
+            list_subset_netcraft = urls_to_submit[j*MAX_POST_REQ_NETCRAFT:(MAX_POST_REQ_NETCRAFT*(1 + j))]
+            if (len(list_subset_netcraft) > 0):
+                uuid = submit_URLs_Netcraft(list_subset_netcraft)
+                print ("Netcraft UUID: " + uuid)
+                #netcraft_uuids.append(uuid)
+
+                if uuid == "0000":
+                    print ("Error, UUID is set to default value of 0000\n")
+                else:
+                    update_cosmos_db(uuid, len(url_list), len(list_subset_netcraft), list_subset_netcraft)
             else:
-                update_cosmos_db(uuid, len(url_list), len(urls_to_submit), urls_to_submit)
-        else:
-            print ("No new URLs to submit to Netcraft")
+                print ("No new URLs to submit to Netcraft")
 
         # store volumes for all URLs received in DB
         store_url_counts(url_list, unique_url_list)
@@ -324,7 +328,9 @@ def submit_URLs_Netcraft(unique_url_list):
     headers = {'Content-type': 'application/json'}
 
     request_data = {
-        "email": "karen.vanderwerf@cyber.gc.ca",
+        #"email": "karen.vanderwerf@cyber.gc.ca",
+        "email": "smishing@cyber.gc.ca",
+        "reason": "tango",
         "urls": [{"url": u} for u in unique_url_list],#[u for u in unique_url_list],
         }
 
